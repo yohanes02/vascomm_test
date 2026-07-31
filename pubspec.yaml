@@ -1,0 +1,61 @@
+name: vascomm_test
+description: "A Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (plain providers/notifiers — no riverpod_generator)
+  flutter_riverpod: ^2.5.1
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Networking
+  dio: ^5.4.3+1
+
+  # Secure local storage (auth tokens)
+  flutter_secure_storage: ^9.2.2
+
+  # Functional error handling (Either / TaskEither)
+  fpdart: ^1.1.0
+
+  # Immutability for entities/DTOs
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.9.0
+
+  # Runtime config from env/.env (see core/config/env.dart)
+  flutter_dotenv: ^6.0.1
+
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+  # Code generation — only needed for @freezed classes and their
+  # fromJson/toJson. Riverpod providers in this project are written by
+  # hand, so riverpod_generator/riverpod_lint are intentionally omitted.
+  build_runner: ^2.4.11
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+
+flutter:
+  uses-material-design: true
+
+  # Drop illustration/photo/icon files in assets/images/ and they'll be
+  # picked up automatically (no pubspec change needed) — see
+  # core/presentation/widgets/placeholder_image.dart for the fallback
+  # shown while a given file doesn't exist yet.
+  assets:
+    - assets/images/
+    - assets/icons/
+    # Bundled so flutter_dotenv can read it through rootBundle. Listed as
+    # an exact path — a directory entry would skip the dotfile.
+    - env/.env
