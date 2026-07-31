@@ -1,81 +1,74 @@
-# Flutter Clean Architecture Starter — Auth Feature
+# vascomm_test
 
-A Feature-First Clean Architecture scaffold with Riverpod state management
-(plain, hand-written providers — no `riverpod_generator`/`@riverpod`
-codegen) and a complete login/register auth feature.
+A Flutter app built feature-first with Clean Architecture and Riverpod. It
+covers login, register, a home screen, and an editable profile.
 
-## Getting started
+Riverpod providers here are written by hand. No `riverpod_generator`, no
+`@riverpod` annotations, so there are no `part` files to keep in sync for
+state management.
+
+## Running it
 
 ```bash
-cp env/.env.example env/.env   # then fill in your API key
+cp env/.env.example env/.env   # fill in your API key
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-Runtime config lives in `env/.env` (gitignored) and is read at startup by
-`core/config/env.dart` via `flutter_dotenv`. The file is declared as an
-asset in `pubspec.yaml`, so **add new keys to `env/.env.example` too** and
-expose them as getters on `Env` rather than reading `dotenv` directly —
-that keeps the "missing key" error in one place. Get a free reqres.in key
-at https://reqres.in.
+The backend is [reqres.in](https://reqres.in), which hands out a free API
+key. Put it in `env/.env`; that file is gitignored, and
+`env/.env.example` is the committed template.
 
-`build_runner` is only needed for the `@freezed` classes (entities and
-DTOs) and their `fromJson`/`toJson`. It generates `*.freezed.dart` and
-`*.g.dart` files. Re-run it (or use `dart run build_runner watch
---delete-conflicting-outputs` while developing) after editing any
-`@freezed` class.
+Config is read at startup by `core/config/env.dart` through
+`flutter_dotenv`, and `env/.env` is declared as an asset in
+`pubspec.yaml`. If you add a key, add it to the example file too and
+expose it as a getter on `Env` instead of calling `dotenv` from random
+places. That way a missing key blows up in one predictable spot.
 
-Riverpod providers are **not** code-generated — they're plain
-`Provider`/`AsyncNotifierProvider` declarations you can read and edit
-directly with no `part` files and no separate build step.
+`build_runner` is only for the `@freezed` entities and DTOs and their
+JSON serialization. Re-run it after editing any of those classes, or
+leave `dart run build_runner watch --delete-conflicting-outputs` going
+while you work.
 
-## Folder structure
+## Layout
 
 ```
 env/
-├── .env                                # Runtime config — gitignored
-└── .env.example                        # Committed template
+├── .env                # gitignored
+└── .env.example        # committed template
 lib/
 ├── core/
-│   ├── config/env.dart                 # Env — typed getters over env/.env
-│   ├── error/                          # Failure hierarchy, mapError/guard, ErrorReporter
-│   ├── network/dio_client.dart         # dioProvider — shared Dio instance + auth token interceptor
-│   ├── storage/token_storage.dart      # tokenStorageProvider — secure storage for access/refresh tokens
-│   ├── routing/app_router.dart         # appRouterProvider — go_router config + auth redirect guard
-│   ├── theme/app_theme.dart            # Light/dark ThemeData
-│   └── presentation/
-│       └── widgets/                    # Cross-feature UI only (AppDrawer, AppInputField,
-│                                       # PrimaryButton, SegmentedToggle, AppIcon, ...)
+│   ├── config/env.dart              Typed getters over env/.env
+│   ├── error/                       Failure types, mapError/guard, ErrorReporter
+│   ├── network/dio_client.dart      Shared Dio instance + auth token interceptor
+│   ├── storage/
+│   │   ├── token_storage.dart       Access/refresh tokens in secure storage
+│   │   └── user_cache_storage.dart  Cached profile (see note below)
+│   ├── routing/app_router.dart      go_router config + auth redirect guard
+│   ├── theme/                       Colors and ThemeData
+│   └── presentation/widgets/        UI shared across features
 ├── features/
-│   ├── home/
-│   │   └── presentation/
-│   │       ├── pages/home_page.dart    # Post-login landing screen
-│   │       └── widgets/                # Home-only UI (PromoBannerCarousel, ServiceFeatureCard,
-│   │                                   # SearchBarRow, CategoryChipBar)
-│   ├── profile/
-│   │   └── presentation/
-│   │       └── pages/profile_page.dart # "Profile Saya" — edits the session user via auth's
-│   │                                   # UpdateProfile use case
-│   └── auth/
-│       ├── domain/                     # Pure Dart. No Flutter, no Riverpod, no Dio.
-│       │   ├── entities/user.dart
-│       │   ├── entities/auth_params.dart          # LoginParams / RegisterParams value objects
-│       │   ├── repositories/auth_repository.dart  # abstract interface
-│       │   └── usecases/                          # login_user, register_user, logout_user, get_current_user
-│       ├── data/
-│       │   ├── models/user_model.dart
-│       │   ├── models/auth_response_model.dart     # {accessToken, refreshToken, user} DTO
-│       │   ├── datasources/auth_remote_data_source.dart   # authRemoteDataSourceProvider
-│       │   └── repositories/auth_repository_impl.dart     # authRepositoryProvider
-│       └── presentation/
-│           ├── controllers/auth_controller.dart    # authControllerProvider — AsyncNotifierProvider<AuthController, User?>
-│           ├── widgets/                            # AuthHeader, AuthFooter (shared by both auth pages)
-│           └── pages/login_page.dart, register_page.dart
+│   ├── auth/
+│   │   ├── domain/      Pure Dart. No Flutter, no Riverpod, no Dio.
+│   │   │   ├── entities/            User, LoginParams, RegisterParams, ...
+│   │   │   ├── repositories/        AuthRepository (abstract)
+│   │   │   └── usecases/            login, register, logout, get_current_user,
+│   │   │                            update_profile
+│   │   ├── data/        Models, remote data source, repository impl
+│   │   └── presentation/            AuthController, login/register pages
+│   ├── home/presentation/           Landing screen + its own widgets
+│   └── profile/presentation/        "Profile Saya", edits the session user
 └── main.dart
+test/                                Unit + widget tests
 ```
 
-## How Riverpod is wired here (no codegen)
+Widgets that more than one feature renders live in
+`core/presentation/widgets/`. Anything a single screen owns stays in that
+feature's `presentation/widgets/` folder. `features/home/` is the example
+to follow.
+
+## Providers without codegen
 
 Every provider is a plain top-level `final`:
 
@@ -95,103 +88,117 @@ final authControllerProvider = AsyncNotifierProvider<AuthController, User?>(
 );
 ```
 
-Dependencies are injected by `ref.watch()`-ing the provider one layer
-down: `authRepositoryProvider` watches `authRemoteDataSourceProvider` and
+Wiring happens by `ref.watch()`-ing the layer below.
+`authRepositoryProvider` watches `authRemoteDataSourceProvider` and
 `tokenStorageProvider`; `authRemoteDataSourceProvider` watches
-`dioProvider`. Swap any layer (e.g. for tests) by overriding its provider
-in a `ProviderScope` — no constructor threading needed, and nothing to
-regenerate.
+`dioProvider`. To swap a layer in tests, override its provider in a
+`ProviderScope`. Nothing gets threaded through constructors and nothing
+needs regenerating.
 
-## Auth feature notes
+## Auth notes
 
-- **`authControllerProvider`** (`AsyncNotifier<User?>`) is the single
-  source of truth for the session: `null` = logged out, a `User` =
-  logged in. `build()` calls `GetCurrentUser`, which checks secure
-  storage for a token and, if present, validates it against `/auth/me`.
-- **Router guard.** `app_router.dart` listens to `authControllerProvider`
-  via a small `ChangeNotifier` bridge (`refreshListenable`) and
-  redirects: unauthenticated users are pushed to `/login`; authenticated
-  users are kept out of `/login` and `/register`.
-- **Token persistence & attachment.** `TokenStorage` wraps
-  `flutter_secure_storage`. `dio_client.dart` adds an interceptor that
-  reads the stored access token and attaches `Authorization: Bearer …` to
-  every request except the `/auth/*` endpoints themselves.
-- **Submitting vs. resolving.** `login()`/`register()` intentionally do
-  *not* set the controller to `AsyncValue.loading()` mid-request — that
-  loading state also drives the app-wide splash screen in `main.dart`.
-  Each form page tracks its own `_isSubmitting` flag for the button
-  instead, so a failed/slow login doesn't blank out the form.
-- **Validation lives in the domain layer.** `LoginUser`/`RegisterUser`
-  reject obviously-invalid input (bad email format, short password)
-  before ever calling the repository — the same rule applies whether the
-  call comes from a widget test or a future CLI tool.
+`authControllerProvider` is an `AsyncNotifier<User?>` and it's the only
+source of truth for the session. `null` means logged out, a `User` means
+logged in. Its `build()` runs `GetCurrentUser`, which looks for a token
+in secure storage and validates it against `/auth/me` if it finds one.
 
-Before running, note that `flutter_secure_storage` needs no extra setup
-on Android/iOS/macOS by default; check the package's docs if you target
-web or Linux.
+`app_router.dart` listens to that provider through a small
+`ChangeNotifier` bridge passed as `refreshListenable`. Unauthenticated
+users get redirected to `/login`, and logged-in users can't get back to
+`/login` or `/register`.
+
+`TokenStorage` wraps `flutter_secure_storage`, and the Dio interceptor
+reads the access token from it and attaches `Authorization: Bearer …` to
+everything except the `/auth/*` endpoints themselves.
+
+There's also a `UserCacheStorage`, which exists because of the backend.
+reqres.in returns only a token from `/api/login` and `/api/register`, no
+user object, so the profile fields the forms collect (name, phone, KTP)
+have nowhere to live but on the device.
+
+One thing that looks odd until you know why: `login()` and `register()`
+deliberately don't flip the controller to `AsyncValue.loading()` while a
+request is in flight. That same loading state drives the app-wide splash
+in `main.dart`, so doing it would blank the form out mid-login. Each form
+page keeps its own `_isSubmitting` flag for the button instead.
+
+Input validation sits in the domain layer. `LoginUser`, `RegisterUser`
+and `UpdateProfile` reject bad email formats, short passwords and empty
+required fields before the repository is ever called, so the same rules
+hold whether the call comes from a widget or a test.
+
+`flutter_secure_storage` needs no extra setup on Android, iOS or macOS.
+Check its docs if you're targeting web or Linux.
 
 ## Error handling
 
-One path, from the thing that broke to the sentence a user reads:
+Errors travel one path, from the throw to the message on screen:
 
 ```
 data source throws  →  guard()  →  Either<Failure, T>  →  AsyncValue
-   (DioException,       maps via     (no exceptions        →  errorMessageFor()
-    SocketException,     mapError()    above here)             in the widget
+   (DioException,       maps via     (nothing throws       →  errorMessageFor()
+    SocketException,     mapError()    above this line)        in the widget
     plugin errors)
 ```
 
-- **`core/error/failure.dart`** — the sealed `Failure` hierarchy. Two
-  invariants: `message` is always safe to show a user, and `cause` (the
-  raw exception) is for logs only. `isRetryable` lets UI offer "Try
-  again" without switching on types.
-- **`core/error/error_mapper.dart`** — the single `mapError()` that turns
-  any thrown object into a `Failure`. Add a new transport error here, not
-  in a repository. `errorMessageFor(error)` is what widgets call —
-  **never `error.toString()`**, which leaks type names and payloads.
-- **`core/error/result_guard.dart`** — `guard()` wraps a repository body,
-  so methods are one expression each instead of a `try/catch` ladder.
-  Pass `unauthorizedMessage:` to reword 401s per context, or `onError:`
-  for bespoke mapping.
-- **`core/error/error_reporter.dart`** — where unexpected errors go.
-  `ErrorReporter.installGlobalHandlers()` in `main()` catches framework
-  and platform errors too. To add Crashlytics/Sentry, assign
-  `ErrorReporter.instance` once in `main()`; nothing else changes. Only
-  `UnknownFailure`s are reported — an offline device or a wrong password
-  is not a bug.
+`core/error/failure.dart` holds the sealed `Failure` hierarchy. Two rules
+about it: `message` is always safe to put in front of a user, and `cause`
+(the original exception) is for logs only. `isRetryable` lets the UI
+offer a retry button without switching on concrete types.
 
-## Architectural rules this scaffold enforces
+`core/error/error_mapper.dart` has the one `mapError()` that turns a
+thrown object into a `Failure`. New transport errors go here, not into a
+repository. Widgets call `errorMessageFor(error)`. They should never call
+`error.toString()`, which leaks type names and payloads into the UI.
 
-1. **Domain layer is pure.** `domain/` never imports `flutter_riverpod`,
-   `dio`, or `json_annotation`. It only knows `freezed_annotation` (for
-   immutability) and `fpdart` (for `Either`).
-2. **Errors are values, not exceptions**, once you're above the data
-   source. `AuthRemoteDataSource` throws `DioException`; the repository's
-   `guard()` is the single seam that catches it and converts it into a
-   `Failure`, returned as `Either<Failure, T>`. See "Error handling".
-3. **Controllers orchestrate, use cases decide.** `AuthController` never
-   validates input itself — it calls `LoginUser`/`RegisterUser`, which
-   own the validation rules and are testable without Flutter or
-   Riverpod.
-4. **Dependency injection flows one direction**, via plain providers.
-5. **UI never sees loading/error/data as ad-hoc booleans.** Async state
-   goes through `AsyncValue`, so branches (loading/data/error) can't be
-   silently forgotten.
+`core/error/result_guard.dart` provides `guard()`, which wraps a
+repository body so each method stays a single expression instead of a
+stack of try/catch. It takes `unauthorizedMessage:` if a 401 needs
+different wording in that context, or `onError:` for one-off mapping.
 
-## Extending this scaffold
+`core/error/error_reporter.dart` is where unexpected errors end up.
+`ErrorReporter.installGlobalHandlers()` in `main()` picks up framework
+and platform errors too. Wiring in Crashlytics or Sentry means assigning
+`ErrorReporter.instance` once in `main()` and changing nothing else. Only
+`UnknownFailure` gets reported, since a dropped connection or a wrong
+password isn't a bug.
 
-- **New feature** → copy `features/auth/` as a template and rename;
-  add its routes to `core/routing/app_router.dart`.
-- **New use case** → add a class under a feature's `domain/usecases/`
-  that takes the repository interface in its constructor; keep it to one
-  public method (`call()`), one responsibility.
-- **New Failure type** → add a subclass in `core/error/failure.dart`, not
-  a stringly-typed error code.
-- **Testing:** because the domain layer depends only on interfaces
-  (`AuthRepository`), unit tests for use cases and the controller can
-  supply a fake/mock repository with no Dio or platform channels
-  involved. Override `authRepositoryProvider` in a test `ProviderScope`
-  to inject the fake.
-- **Where a widget lives** → `core/presentation/widgets/` is for UI used by
-  more than one feature. Anything only one screen renders belongs in that
-  feature's own `presentation/widgets/` (see `features/home/`).
+## Rules the code sticks to
+
+The domain layer stays pure. Nothing under `domain/` imports
+`flutter_riverpod`, `dio` or `json_annotation`. It knows about
+`freezed_annotation` for immutability and `fpdart` for `Either`, and
+that's it.
+
+Above the data source, errors are values rather than exceptions.
+`AuthRemoteDataSource` throws `DioException`, and the repository's
+`guard()` is the single seam where that gets caught and turned into a
+`Failure` inside an `Either`.
+
+Controllers orchestrate and use cases decide. `AuthController` doesn't
+validate anything itself, it calls the use case that owns the rule.
+
+Async state goes through `AsyncValue` instead of ad-hoc `isLoading` /
+`errorMessage` booleans, so a forgotten branch is a compile-time problem
+rather than a blank screen.
+
+## Adding to it
+
+For a new feature, copy `features/auth/` and rename, then register its
+routes in `core/routing/app_router.dart`.
+
+For a new use case, add a class under the feature's `domain/usecases/`
+that takes the repository interface in its constructor, and keep it to a
+single public `call()`.
+
+For a new error case, add a `Failure` subclass rather than a stringly
+typed error code.
+
+For tests, remember the domain layer only depends on the
+`AuthRepository` interface, so use case and controller tests can hand it
+a fake with no Dio and no platform channels involved. Override
+`authRepositoryProvider` in the test's `ProviderScope`. Run them with:
+
+```bash
+flutter test
+```
